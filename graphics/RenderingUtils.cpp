@@ -2,6 +2,23 @@
 
 
 namespace RenderingUtils{
+	// Create a projection matrix based on fov and near/far clipping planes
+	// Note; angleOfView is in degrees
+	void setProjectionMatrix(const float& angleOfView, const float& nearClip, const float& farClip,
+		const float& aspectRatio, Eigen::Matrix4f& mat) {
+
+		// set the basic projection matrix
+		float scale = nearClip * tan(angleOfView * 0.5 * M_PI / 180);
+		// The left/right & top/bottom ends of the view frustum
+		float r = aspectRatio * scale, l = -r;
+		float t = scale, b = -t;
+
+		mat(0, 0) = 2.0f * nearClip / (r - l);						mat(0, 2) = (r + l) / (r - l);
+		mat(1, 1) = 2.0f * nearClip / (t - b);						mat(1, 2) = (t + b) / (t - b);
+		mat(2, 2) = -(farClip + nearClip) / (farClip - nearClip);	mat(2, 3) = -2.0f * farClip * nearClip / (farClip - nearClip);
+		mat(3, 2) = -1.0f;
+	}
+
 	// Camera set up at a certain position
 	// (Make it necessary to call this cstor)
 	camera::camera(float posx, float posy, float posz){
@@ -177,16 +194,17 @@ namespace RenderingUtils{
 	void TrackballCamera::zoom(float distance) {
 		viewNeedsUpdate = true;
 
-		radius -= distance;
+		if(radius - distance > 0.0f)
+			radius -= distance;
 
-		// Don't let the radius go negative
-		// If it does, re-project our target down the look vector
-		if (radius <= 0.0f) {
-			radius = 30.0f;
-			Vector_3 look = targetPos - pos;
-			look = look / sqrt(look.squared_length());
-			targetPos = targetPos + 30.f * look;
-		}
+		//// Don't let the radius go negative
+		//// If it does, re-project our target down the look vector
+		//if (radius <= 0.0f) {
+		//	radius = 30.0f;
+		//	Vector_3 look = targetPos - pos;
+		//	look = look / sqrt(look.squared_length());
+		//	targetPos = targetPos + 30.f * look;
+		//}
 	}
 
 	void TrackballCamera::pan(float dx, float dy) {
@@ -217,7 +235,6 @@ namespace RenderingUtils{
 			upVector = CGAL::cross_product(side, forward);
 
 			// Update the view matrix
-			//viewMatrix = Eigen::Matrix4f::Identity();
 			viewMatrix(0, 0) = side.x();		viewMatrix(0, 1) = side.y();		viewMatrix(0, 2) = side.z();		viewMatrix(0, 3) = 0.0f;
 			viewMatrix(1, 0) = upVector.x();	viewMatrix(1, 1) = upVector.y();	viewMatrix(1, 2) = upVector.z();	viewMatrix(1, 3) = 0.0f;
 			viewMatrix(2, 0) = -forward.x();	viewMatrix(2, 1) = -forward.y();	viewMatrix(2, 2) = -forward.z();	viewMatrix(2, 3) = 0.0f;
@@ -235,11 +252,6 @@ namespace RenderingUtils{
 
 	void TrackballCamera::updateCartesianCoords() {
 		// Update the TrackballCamera position in cartesian coordinates
-		//float x = radius * sinf(phi) * sinf(theta);
-		//float z = radius * cosf(phi);
-		//float y = radius * sinf(phi) * cosf(theta);
-
-
 		float x = radius * sinf(phi) * cosf(theta);
 		float y = radius * cosf(phi);
 		float z = radius * sinf(phi) * sinf(theta);

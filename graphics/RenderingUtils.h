@@ -13,6 +13,9 @@
 #include <math.h>
 
 namespace RenderingUtils{
+	void setProjectionMatrix(const float& angleOfView, const float& nearClip, const float& farClip,
+		const float& aspectRatio, Eigen::Matrix4f& mat);
+
 	// TODO: Finish this and use this as the default camera
 	// A trackball camera class
 	class TrackballCamera

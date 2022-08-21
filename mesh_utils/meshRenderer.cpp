@@ -8,38 +8,28 @@
 using namespace RenderingUtils;
 
 namespace MeshUtils {
-	meshRenderer::meshRenderer() : mesh(nullptr), selectedFaceIdx(Halfedge_mesh::null_face()), selectedEdgeIdx(Halfedge_mesh::null_edge()),
-		selectedFaceColour(153, 255, 255), selectedEdgeColour(128, 0, 128),
-		faceColour(255, 255, 255), edgeColour(0, 0, 0) {
-
-	}
-
-	meshRenderer::meshRenderer(Halfedge_mesh* meshToRender, Eigen::Matrix4f* modelMatrix, Eigen::Matrix4f* viewMatrix, Eigen::Matrix4f* projectionMatrix,
-		Shader* shaderObj /*= nullptr*/, colour faceCol /*= colour(255, 255, 255)*/, colour edgeCol /*= colour(0, 0, 0)*/,
-		colour selectedFaceCol /*= colour(153, 255, 255)*/, colour selectedEdgeCol /*= colour(128, 0, 128)*/) {
-		this->mesh = meshToRender;
-		this->modelMat = modelMatrix;
-		this->viewMat = viewMatrix;
-		this->projectionMat = projectionMatrix;
-		this->shader = shaderObj;
+	meshRenderer::meshRenderer(const std::initializer_list<Halfedge_mesh>& meshList, Eigen::Matrix4f& modelMatrix,
+		Eigen::Matrix4f& viewMatrix, Eigen::Matrix4f& projectionMatrix,
+		const Shader& shaderObj /*= nullptr*/, colour faceCol /*= colour(255, 255, 255)*/, colour edgeCol /*= colour(0, 0, 0)*/,
+		colour selectedFaceCol /*= colour(153, 255, 255)*/, colour selectedEdgeCol /*= colour(128, 0, 128)*/)
+		: modelMat(modelMatrix), viewMat(viewMatrix),
+		projectionMat(projectionMatrix), shader(shaderObj){
 		this->faceColour = faceCol;
 		this->edgeColour = edgeCol;
 		this->selectedFaceColour = selectedFaceCol;
 		this->selectedEdgeColour = selectedEdgeCol;
 
-		// If no shader is provided, then draw using regular method
-		if (!this->shader)
-			useShader = false;
+		meshes.reserve(meshList.size());
+		for (const auto& mesh : meshList)
+			meshes.emplace_back(mesh);
+
+		//// If no shader is provided, then draw using regular method
+		//if (!this->shader)
+		//	useShader = false;
 
 		// Set up the vertex arrays and other info for rendering
 		Initialize();
 	}
-
-	//meshRenderer::meshRenderer(Halfedge_mesh *meshToRender, Shader *shaderObj) : selectedFaceIdx(Halfedge_mesh::null_face()), selectedEdgeIdx(Halfedge_mesh::null_edge()),
-	//selectedFaceColour(153, 255, 255), selectedEdgeColour(128, 0, 128),
-	//faceColour(255, 255, 255), edgeColour(0, 0, 0), mesh(meshToRender), shader(shaderObj) {
-	//	//this->mesh = meshToRender;
-	//}
 
 	// Create vertex and index array for the faces & edges in the mesh
 	// This would be used to create OpenGL vertex array objects
@@ -47,49 +37,52 @@ namespace MeshUtils {
 		faceVertices.resize(0);	edgeVertices.resize(0);
 		faceIndices.resize(0);	edgeIndices.resize(0);
 
-		// The number of faces and edges in the mesh
-		numFaces = mesh->num_faces();
-		numEdges = mesh->num_edges();
+		for (const auto& meshRefWrapper : meshes) {
+			const auto& mesh = meshRefWrapper.get();
+
+			// The number of faces and edges in the mesh
+			numFaces = mesh.num_faces();
+			numEdges = mesh.num_edges();
 
 
-		// Add all the vertices in the mesh
-	// Different colours for faces and edges, so different arrays are required!
-		for (auto vertIter = mesh->vertices_begin(); vertIter != mesh->vertices_end(); ++vertIter) {
-			Point_3 pt = mesh->point(*vertIter);
+			// Add all the vertices in the mesh
+			// Different colours for faces and edges, so different arrays are required!
+			for(const auto& vertIdx : mesh.vertices()){
+				const auto& pt = mesh.point(vertIdx);
 
-			// The vertices
-			faceVertices.push_back(pt.x());	faceVertices.push_back(pt.y());	faceVertices.push_back(pt.z());
-			edgeVertices.push_back(pt.x());	edgeVertices.push_back(pt.y());	edgeVertices.push_back(pt.z());
+				// The vertices
+				faceVertices.push_back(pt.x());	faceVertices.push_back(pt.y());	faceVertices.push_back(pt.z());
+				edgeVertices.push_back(pt.x());	edgeVertices.push_back(pt.y());	edgeVertices.push_back(pt.z());
 
-			// The colours
-			faceVertices.push_back(faceColour.r / 255.);	faceVertices.push_back(faceColour.g / 255.);	faceVertices.push_back(faceColour.b / 255.);
-			edgeVertices.push_back(edgeColour.r / 255.);	edgeVertices.push_back(edgeColour.g / 255.);	edgeVertices.push_back(edgeColour.b / 255.);
+				// The colours
+				faceVertices.push_back(faceColour.r / 255.);	faceVertices.push_back(faceColour.g / 255.);	faceVertices.push_back(faceColour.b / 255.);
+				edgeVertices.push_back(edgeColour.r / 255.);	edgeVertices.push_back(edgeColour.g / 255.);	edgeVertices.push_back(edgeColour.b / 255.);
 
-			// TODO:
-			// The texture coordinates
-			// (The texture domain ranges from [0, 1] in both the directions)
-		}
+				// TODO:
+				// The texture coordinates
+				// (The texture domain ranges from [0, 1] in both the directions)
+			}
 
 
-		// Add all the indices of vertices in the FACES
-		for (auto faceIter = mesh->faces_begin(); faceIter != mesh->faces_end(); ++faceIter) {
-			Halfedge_mesh::Halfedge_index hf = mesh->halfedge(*faceIter);
-			Halfedge_mesh::Vertex_index vertA = mesh->source(hf), vertB = mesh->source(mesh->next(hf)),
-				vertC = mesh->source(mesh->prev(hf));
+			// Add all the indices of vertices in the FACES
+			for (const auto& faceIdx : mesh.faces()) {
+				Halfedge_mesh::Halfedge_index hf = mesh.halfedge(faceIdx);
+				Halfedge_mesh::Vertex_index vertA = mesh.source(hf), vertB = mesh.source(mesh.next(hf)),
+					vertC = mesh.source(mesh.prev(hf));
 
-			faceIndices.push_back(vertA);
-			faceIndices.push_back(vertB);
-			faceIndices.push_back(vertC);
+				faceIndices.push_back(vertA);
+				faceIndices.push_back(vertB);
+				faceIndices.push_back(vertC);
+			}
 
-		}
+			// Add all the indices of vertices in the EDGES
+			for (const auto& edgeIdx : mesh.edges()) {
+				Halfedge_mesh::Halfedge_index hf = mesh.halfedge(edgeIdx);
+				Halfedge_mesh::Vertex_index vertA = mesh.source(hf), vertB = mesh.target(hf);
 
-		// Add all the indices of vertices in the EDGES
-		for (auto edgeIter = mesh->edges_begin(); edgeIter != mesh->edges_end(); ++edgeIter) {
-			Halfedge_mesh::Halfedge_index hf = mesh->halfedge(*edgeIter);
-			Halfedge_mesh::Vertex_index vertA = mesh->source(hf), vertB = mesh->target(hf);
-
-			edgeIndices.push_back(vertA);
-			edgeIndices.push_back(vertB);
+				edgeIndices.push_back(vertA);
+				edgeIndices.push_back(vertB);
+			}
 		}
 	}
 
@@ -132,17 +125,17 @@ namespace MeshUtils {
 
 		if (useShader) {
 			// Get the attrib pointer (positions) for the current buffer (Here, VAO1)
-			auto vertAttrib = glGetAttribLocation(shader->programID, "vertex");
+			auto vertAttrib = glGetAttribLocation(shader.programID, "vertex");
 			glVertexAttribPointer(vertAttrib, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)0);
 			glEnableVertexAttribArray(vertAttrib);
 			// Get the colour attrib pointer for the vertices
-			auto col = glGetAttribLocation(shader->programID, "inColour");
+			auto col = glGetAttribLocation(shader.programID, "inColour");
 			glVertexAttribPointer(col, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(3 * sizeof(float)));
 			glEnableVertexAttribArray(col);
 
 #if 0
 			// Get the texture attribute pointer for the vertices
-			auto tex = glGetAttribLocation(shader->programID, "inTexCoord");
+			auto tex = glGetAttribLocation(shader.programID, "inTexCoord");
 			glVertexAttribPointer(tex, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
 			glEnableVertexAttribArray(tex);
 #endif
@@ -163,11 +156,11 @@ namespace MeshUtils {
 		if (useShader) {
 			// NOTE: The foll has to be done for each vertex array object that exists
 			// Get the attrib pointer (positions) for the current buffer (Here, VAO2)
-			auto vertAttrib = glGetAttribLocation(shader->programID, "vertex");
+			auto vertAttrib = glGetAttribLocation(shader.programID, "vertex");
 			glVertexAttribPointer(vertAttrib, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
 			glEnableVertexAttribArray(vertAttrib);
 			// Get the colour attrib pointer for the vertices
-			auto col = glGetAttribLocation(shader->programID, "inColour");
+			auto col = glGetAttribLocation(shader.programID, "inColour");
 			glVertexAttribPointer(col, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 			glEnableVertexAttribArray(col);
 		}
@@ -184,7 +177,6 @@ namespace MeshUtils {
 	// Draw faces in the mesh
 	void meshRenderer::DrawFaces(bool smooth) const {
 		// OLD RENDERING METHOD
-
 #if 0
 		GLfloat white[4] = { 1., 1., 1., 1. };
 		GLfloat faceCol[4] = { (float)faceColour.r / 255., (float)faceColour.g / 255., (float)faceColour.b / 255., 1. };
@@ -194,7 +186,7 @@ namespace MeshUtils {
 		glEnable(GL_LIGHT0);
 		glLightfv(GL_LIGHT0, GL_DIFFUSE, white);
 		// Iterating over each face
-		for (auto Face_index = mesh->faces_begin(); Face_index != mesh->faces_end(); ++Face_index) {
+		for (auto Face_index = mesh.faces_begin(); Face_index != mesh.faces_end(); ++Face_index) {
 
 			// Prevent z fighting (faces bleeding into edges and points).
 			glEnable(GL_POLYGON_OFFSET_FILL);
@@ -217,18 +209,18 @@ namespace MeshUtils {
 				glDisable(GL_LIGHTING);
 			}
 
-			Vector_3 faceNorm = (mesh->faceNormals.find(*Face_index))->second;
+			Vector_3 faceNorm = (mesh.faceNormals.find(*Face_index))->second;
 			if (!smooth)
 				glNormal3dv(&faceNorm.x());
 			// Traversing the halfedges to get the vertices
-			Halfedge_mesh::Halfedge_index startHalfedgeIdx = mesh->halfedge(*Face_index);
+			Halfedge_mesh::Halfedge_index startHalfedgeIdx = mesh.halfedge(*Face_index);
 			Halfedge_mesh::Halfedge_index currHalfedgeIdx = startHalfedgeIdx;
 			do {
-				Halfedge_mesh::Vertex_index vertIdx = mesh->source(currHalfedgeIdx);
-				Point_3 pt = mesh->point(vertIdx);
+				Halfedge_mesh::Vertex_index vertIdx = mesh.source(currHalfedgeIdx);
+				Point_3 pt = mesh.point(vertIdx);
 				glVertex3d(pt.x(), pt.y(), pt.z());
 				// Move to the next halfedge
-				currHalfedgeIdx = mesh->next(currHalfedgeIdx);
+				currHalfedgeIdx = mesh.next(currHalfedgeIdx);
 			} while (currHalfedgeIdx != startHalfedgeIdx);
 			glEnd();
 		}
@@ -254,7 +246,7 @@ namespace MeshUtils {
 		Point_3 actualStartPos(0.0, 0.0, 0.0), actualEndPos(0.0, 0.0, 0.0);
 		double vertexOffset = 0.001;
 		bool edgeSelected = false;
-		for (auto Edge_index = mesh->edges_begin(); Edge_index != mesh->edges_end(); ++Edge_index) {
+		for (auto Edge_index = mesh.edges_begin(); Edge_index != mesh.edges_end(); ++Edge_index) {
 			if (*Edge_index == this->selectedEdgeIdx) {
 				glEnable(GL_LINE_SMOOTH);
 				glColor3ub(selectedEdgeColour.r, selectedEdgeColour.g, selectedEdgeColour.b);
@@ -265,9 +257,9 @@ namespace MeshUtils {
 				glLineWidth(1.0);
 			}
 
-			Halfedge_mesh::Halfedge_index halfEdgeIdx = mesh->halfedge(*Edge_index);
-			Point_3 startVert = mesh->point(mesh->source(halfEdgeIdx));
-			Point_3 endVert = mesh->point(mesh->source(mesh->opposite(halfEdgeIdx)));
+			Halfedge_mesh::Halfedge_index halfEdgeIdx = mesh.halfedge(*Edge_index);
+			Point_3 startVert = mesh.point(mesh.source(halfEdgeIdx));
+			Point_3 endVert = mesh.point(mesh.source(mesh.opposite(halfEdgeIdx)));
 
 			// TODO: Check if the edge has been selected
 
@@ -294,17 +286,17 @@ namespace MeshUtils {
 #endif
 
 		// Use the shader program
-		glUseProgram(shader->programID);
+		glUseProgram(shader.programID);
 
 		// Apply Transformations
-		auto modelMatLoc = glGetUniformLocation(shader->programID, "model");
-		glUniformMatrix4fv(modelMatLoc, 1, GL_FALSE, modelMat->data());
+		auto modelMatLoc = glGetUniformLocation(shader.programID, "model");
+		glUniformMatrix4fv(modelMatLoc, 1, GL_FALSE, modelMat.data());
 
-		auto viewMatLoc = glGetUniformLocation(shader->programID, "view");
-		glUniformMatrix4fv(viewMatLoc, 1, GL_FALSE, viewMat->data());
+		auto viewMatLoc = glGetUniformLocation(shader.programID, "view");
+		glUniformMatrix4fv(viewMatLoc, 1, GL_FALSE, viewMat.data());
 
-		auto projMatLoc = glGetUniformLocation(shader->programID, "projection");
-		glUniformMatrix4fv(projMatLoc, 1, GL_FALSE, projectionMat->data());
+		auto projMatLoc = glGetUniformLocation(shader.programID, "projection");
+		glUniformMatrix4fv(projMatLoc, 1, GL_FALSE, projectionMat.data());
 
 		if (renderFaces) {
 			// Enable lighting for faces
@@ -324,11 +316,11 @@ namespace MeshUtils {
 
 
 	// TEMP - Draw an arrow representing a halfedge
-	void meshRenderer::DrawHalfedgeArrow(const Halfedge_mesh::Halfedge_index h) {
+	void meshRenderer::DrawHalfedgeArrow(const Halfedge_mesh& mesh, const Halfedge_mesh::Halfedge_index h) {
 
-		const Point_3& p0 = /*h->vertex()->position*/					mesh->point(mesh->source(h));
-		const Point_3& p1 = /*h->next()->vertex()->position*/			mesh->point(mesh->source(mesh->next(h)));
-		const Point_3& p2 = /*h->next()->next()->vertex()->position*/	mesh->point(mesh->source(mesh->next(mesh->next(h))));
+		const Point_3& p0 = /*h->vertex()->position*/					mesh.point(mesh.source(h));
+		const Point_3& p1 = /*h->next()->vertex()->position*/			mesh.point(mesh.source(mesh.next(h)));
+		const Point_3& p2 = /*h->next()->next()->vertex()->position*/	mesh.point(mesh.source(mesh.next(mesh.next(h))));
 
 		const Vector_3& e01 = p1 - p0;
 		const Vector_3& e12 = p2 - p1;
@@ -341,7 +333,7 @@ namespace MeshUtils {
 		const Vector_3& b = /*p1 + v / 5*/ Vector_3(p1.x() + (v.x() / 5.0), p1.y() + (v.y() / 5.0), p1.z() + (v.z() / 5.0));
 
 		const Vector_3& s = (b - a) / 5;
-		const Vector_3& t = CGAL::cross_product(mesh->faceNormals.at(mesh->face(h)), s);
+		const Vector_3& t = CGAL::cross_product(mesh.faceNormals.at(mesh.face(h)), s);
 		double theta = M_PI * 5 / 6;
 		const Vector_3& c = b + cos(theta) * s + sin(theta) * t;
 

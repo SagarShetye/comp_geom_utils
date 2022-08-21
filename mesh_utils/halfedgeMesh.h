@@ -68,8 +68,9 @@ namespace MeshUtils {
 		// TODO
 		// Collapse an edge into a vertex
 		Vertex_index CollapseEdge(Edge_index edgeIdx);
-	};
 
+		void Transform(const Eigen::Matrix4f& transformMat);
+	};
 }
 
 namespace boost {

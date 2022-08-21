@@ -8,6 +8,8 @@
 #include "shader.h"
 #include "RenderingUtils.h"
 
+#include <functional>
+
 // TODO: Update the drawing methods to use vertex buffers (using glDrawArrays)
 namespace MeshUtils {
 	// TODO: Give an option to render without using shaders
@@ -31,23 +33,28 @@ namespace MeshUtils {
 		// Reference to the shader object. The caller will be responsible
 		// for loading/compiling/linking the shader. The renderer object
 		// will just use it.
-		Shader* shader;
+		const Shader& shader;
 
 		// The model, view and projection matrices
-		Eigen::Matrix4f* modelMat, * viewMat, * projectionMat;
+		Eigen::Matrix4f& modelMat;
+		Eigen::Matrix4f& viewMat;
+		Eigen::Matrix4f& projectionMat;
 
 		RenderingUtils::colour faceColour, edgeColour;
 		RenderingUtils::colour selectedFaceColour, selectedEdgeColour;
 		// Indices of the selected entities to draw in a different style/colour
 		Halfedge_mesh::Face_index selectedFaceIdx;
 		Halfedge_mesh::Edge_index selectedEdgeIdx;
-		Halfedge_mesh* mesh;
+		//const Halfedge_mesh& mesh;	// TODO: Maintain a list of references to different meshes
+		//							// The meshRenderer doesn't need to reference only 1 mesh
+
+		std::vector<std::reference_wrapper<const Halfedge_mesh>> meshes;
 
 		// Constructors
-		meshRenderer();
+		meshRenderer() = delete;
 		//meshRenderer(Halfedge_mesh*, Shader*);
-		meshRenderer(Halfedge_mesh*, Eigen::Matrix4f*, Eigen::Matrix4f*, 
-			Eigen::Matrix4f*, Shader*, RenderingUtils::colour = RenderingUtils::colour(255, 255, 255), 
+		meshRenderer(const std::initializer_list<Halfedge_mesh>& meshList, Eigen::Matrix4f&, Eigen::Matrix4f&,
+			Eigen::Matrix4f&, const Shader&, RenderingUtils::colour = RenderingUtils::colour(255, 255, 255), 
 			RenderingUtils::colour = RenderingUtils::colour(0, 0, 0),
 			RenderingUtils::colour = RenderingUtils::colour(153, 255, 255), RenderingUtils::colour = RenderingUtils::colour(128, 0, 128));
 
@@ -60,7 +67,7 @@ namespace MeshUtils {
 		// Render the faces of the mesh
 		void DrawFaces(bool smooth) const;
 		// Draw an arrow representing an halfedge
-		void DrawHalfedgeArrow(const Halfedge_mesh::Halfedge_index h);
+		void DrawHalfedgeArrow(const Halfedge_mesh& mesh, const Halfedge_mesh::Halfedge_index h);
 
 		// Turn off Face rendering
 		inline void toggleFaceRendering() {
