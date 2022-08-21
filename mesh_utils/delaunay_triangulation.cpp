@@ -17,6 +17,7 @@
 #include "meshIO.h"
 #include "delaunay_triangulation.h"
 
+using namespace GeomUtils;
 using namespace MeshUtils;
 
 //// Generate a random number between 2 doubles
