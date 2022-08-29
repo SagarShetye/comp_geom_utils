@@ -9,6 +9,6 @@ add_library(mesh_utils
 )
 
 find_package(CGAL REQUIRED)
-target_link_libraries(mesh_utils graphics mesh_parsers ${CGAL_LIBRARIES})
+target_link_libraries(mesh_utils graphics geom_utils mesh_parsers ${CGAL_LIBRARIES})
 
 target_include_directories(mesh_utils PUBLIC .)

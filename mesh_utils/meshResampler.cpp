@@ -1,4 +1,6 @@
 #include "meshResampler.h"
+
+using namespace GeomUtils;
 using namespace MeshUtils;
 
 namespace MeshUtils {

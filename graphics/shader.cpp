@@ -1,7 +1,5 @@
 #include "shader.h"
 
-Shader::Shader() {};
-
 Shader::Shader(const std::string &vtxShaderFile, const std::string &fragShaderFile) {
 	// Read the vertex shader source code
 	readShaderSource(vtxShaderFile, vtxShaderData);

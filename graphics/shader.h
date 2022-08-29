@@ -21,7 +21,7 @@ public:
 	// program IDs for the vertex and fragment shaders, these would be linked in the last step
 	unsigned int vertexShaderID, fragmentShaderID;
 
-
+	Shader() = delete;
 	Shader(const std::string &vtxShaderFile, const std::string &fragShaderFile);
 
 	// Compile the shaders
@@ -31,7 +31,6 @@ public:
 	bool linkShader();
 
 private:
-	Shader();
 
 	void readShaderSource(const std::string &shaderSource, std::string &shaderData);
 
